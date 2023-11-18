@@ -34,7 +34,7 @@ JSONDict = Annotated[Optional[dict], tyro.conf.arg(metavar="JSON", constructor=j
 @dataclass
 class P3OConfig:
     """
-    Configuration class for PPOTrainer
+    Configuration class for P3OTrainer
     """
 
     # common parameters
@@ -78,20 +78,12 @@ class P3OConfig:
     """kl penalty options: 'kl': model_logp - ref_logp,  'abs': abs(kl),  'mse': mean squared error mse(kl) and 'full': the actual kl for all tokens in the distribution"""
     target: Optional[float] = 6
     """Target KL value for adaptive KL control"""
-    # horizon: Optional[float] = 10000
+    horizon: Optional[float] = 10000
     """Horizon for adaptive KL control"""
-    gamma: float = 1
-    """Gamma parameter for advantage calculation"""
-    lam: float = 0.95
-    """Lambda parameter for advantage calculation"""
     cliprange: float = 0.2
     """Range for clipping in PPO policy gradient loss"""
-    # cliprange_value: float = 0.2
-    """Range for clipping values in loss calculation"""
     cliprange_ratio: float = 10.0
-    """Range for clipping the ratio in P3O loss"""
-    # vf_coef: float = 0.1
-    """Scaling factor for value loss"""
+    """Range for clipping values in loss calculation"""
     batch_size: int = 256
     """Number of samples per optimisation step"""
     forward_batch_size: Optional[int] = None
@@ -112,7 +104,7 @@ class P3OConfig:
     """Optimize device cache for slightly more memory-efficient training"""
     early_stopping: bool = False
     """Whether to stop the PPO optimization loop early is the KL too high"""
-    # target_kl: float = 1
+    target_kl: float = 1
     """Stop early if we exceed this value by over 50%"""
     compare_steps: int = 1
     """Number of steps between comparison of the current reward with the best seen so far"""
@@ -124,8 +116,12 @@ class P3OConfig:
     """Use score normalization. Only applicable if use_score_scaling is True"""
     score_clip: Optional[float] = None
     """Score clipping"""
-    # whiten_rewards: bool = False
+    whiten_rewards: bool = False
     """Whiten the rewards before compute advantages"""
+    clip_by_token: bool = False
+    """Clip the loss by token or by sequence"""
+    normalize_by_token: bool = False
+    """Normalize the loss by token or by sequence length"""
 
     # computed hyperparameters at runtime; we use `tyro.conf.Suppress` to hide them from the help text
     is_encoder_decoder: Optional[tyro.conf.Suppress[bool]] = None
@@ -140,7 +136,9 @@ class P3OConfig:
     """TO BE FILLED In RUNTIME: the effective `batch_size` across all processes"""
 
     if optimize_cuda_cache is not None:
-        warnings.warn("The `optimize_cuda_cache` arguement will be deprecated soon, please use `optimize_device_cache` instead.")
+        warnings.warn(
+            "The `optimize_cuda_cache` arguement will be deprecated soon, please use `optimize_device_cache` instead."
+        )
         optimize_device_cache = optimize_cuda_cache
     else:
         optimize_device_cache = False
@@ -165,7 +163,9 @@ class P3OConfig:
         if self.log_with == "wandb":
             # raise error if wandb is not installed
             if not is_wandb_available():
-                raise ImportError("Please install wandb to use wandb logging. You can do this by running `pip install wandb`.")
+                raise ImportError(
+                    "Please install wandb to use wandb logging. You can do this by running `pip install wandb`."
+                )
 
         self.total_p3o_epochs = int(np.ceil(self.steps / self.batch_size))
         assert self.kl_penalty in ["kl", "abs", "mse", "full"]
